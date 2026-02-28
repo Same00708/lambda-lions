@@ -4,7 +4,8 @@ pycryptodome==3.20.0             # AES-256-GCM, HKDF, HMAC
 cryptography==43.0.0             # Utils crypto bonus
 
 # Réseau & Async
-asyncio==built-in                # Event loop (Python standard)
+# asyncio est intégré à Python 3.4+
+# asyncio
 aiohttp==3.9.0                   # Serveur HTTP local optionnel
 
 # CLI & Interface
@@ -13,7 +14,8 @@ rich==13.7.0                     # Affichage console joli
 prompt_toolkit==3.0.43           # CLI interactif (optionnel)
 
 # Stockage & Persistance
-sqlite3==built-in                # Base de données locale
+# sqlite3 est intégré à Python
+# sqlite3
 msgpack==1.0.8                   # Sérialisation binaire rapide
 
 # AI (OPTIONAL - désactivable)
@@ -22,7 +24,7 @@ python-dotenv==1.0.0             # Variables d'environnement
 
 # Testing & Debug
 pytest==8.0.0                    # Tests unitaires
-pytest-asyncio==0.23.0           # Tests async
+pytest-asyncio==0.23.5           # Tests async
 pytest-cov==4.1.0                # Couverture de code
 
 # Logging & Monitoring
