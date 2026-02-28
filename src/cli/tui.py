@@ -126,7 +126,7 @@ class ArchipelDashboard(App):
             
             await self.node.start()
             lan_ip = get_lan_ip()
-            self.query_one(Header).query_one(Static).update(f"Archipel Node | ID: {self.node.node_id.hex()[:16]}... | IP: {lan_ip}:{self.port}")
+            self.title = f"Archipel Node | ID: {self.node.node_id.hex()[:16]}... | IP: {lan_ip}:{self.port}"
             self.write_to_log("[bold green]System[/bold green]: Node started and ready.")
             self.write_to_log(f"[bold blue]Hint[/bold blue]: To connect another PC, type: [italic]/connect {lan_ip}:{self.port}[/italic] on the other machine.")
         except OSError as e:
