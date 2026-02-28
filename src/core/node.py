@@ -78,8 +78,9 @@ class Node:
         """Find peer in table, connect, and send encrypted data."""
         peer_info = self.peer_table.get_peer(peer_id_hex)
         if not peer_info:
-            logger.error(f"Peer {peer_id_hex[:8]} not found in table.")
-            return
+            err = f"Peer {peer_id_hex[:8]} not found in table."
+            logger.error(err)
+            raise ValueError(err)
 
         host, port = peer_info
         client = TCPClient(self, host, port)

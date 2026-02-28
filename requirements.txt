@@ -12,6 +12,7 @@ aiohttp==3.9.0                   # Serveur HTTP local optionnel
 click==8.1.7                     # Parsing arguments
 rich==13.7.0                     # Affichage console joli
 prompt_toolkit==3.0.43           # CLI interactif (optionnel)
+textual==0.50.0                  # TUI (Interface Graphique Terminal)
 
 # Stockage & Persistance
 # sqlite3 est intégré à Python

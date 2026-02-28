@@ -52,6 +52,14 @@ class TCPClient:
             peer_id = remote_ed_pk_bytes.hex()
             self.node.sessions[peer_id] = self.session
             
+            # Record peer in table
+            self.node.peer_table.add_peer(
+                peer_id, 
+                self.host, 
+                self.port, 
+                asyncio.get_event_loop().time()
+            )
+            
             logger.info(f"Secure session established with {peer_id[:16]}... at {self.host}:{self.port}")
             
         except ConnectionRefusedError:
