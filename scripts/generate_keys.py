@@ -1,5 +1,8 @@
-#!/usr/bin/env python3
-"""Generate Ed25519 keypair and save to files."""
+import sys
+import os
+
+# Add project root to sys.path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from src.crypto.pki import generate_keypair
 
