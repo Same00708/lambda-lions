@@ -72,6 +72,20 @@ class Node:
 
     def on_message_received(self, sender_id: str, data: bytes):
         """Callback for TCPServer when a decrypted message is received."""
+        if data.startswith(b"/file "):
+            header_end = data.find(b" ", 6)
+            if header_end != -1:
+                filename = data[6:header_end].decode(errors='replace')
+                file_content = data[header_end+1:]
+                import os
+                os.makedirs("downloads", exist_ok=True)
+                safe_name = "".join(c for c in filename if c.isalnum() or c in "._-")
+                filepath = os.path.join("downloads", f"received_{safe_name}")
+                with open(filepath, "wb") as f:
+                    f.write(file_content)
+                logger.info(f"Received file '{filename}' from {sender_id[:8]} saved to {filepath}")
+                return
+                
         logger.info(f"Received message from {sender_id[:8]}: {data.decode(errors='replace')}")
 
     async def send_to_peer(self, peer_id_hex: str, data: bytes):

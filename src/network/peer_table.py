@@ -17,9 +17,12 @@ class PeerTable:
             )"""
         )
 
-    def add_peer(self, node_id, host, port, last_seen):
+    def add_peer(self, node_id, host, port, last_seen=None):
+        if last_seen is None:
+            import time
+            last_seen = time.time()
         self.conn.execute(
-            "INSERT OR REPLACE INTO peers VALUES (?, ?, ?, ?)",
+            "INSERT OR REPLACE INTO peers (node_id, host, port, last_seen) VALUES (?, ?, ?, ?)",
             (node_id, host, port, last_seen)
         )
         self.conn.commit()

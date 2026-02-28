@@ -89,6 +89,8 @@ class ArchipelDashboard(App):
         Binding("q", "quit", "Quit", show=True),
         Binding("c", "connect_manual", "Connect Ad-hoc", show=True),
         Binding("r", "refresh_peers", "Refresh Peers", show=True),
+        Binding("f", "transfer_file", "Send File", show=True),
+        Binding("a", "ask_gemini", "Ask AI", show=True),
     ]
 
     selected_peer_id = reactive(None)
@@ -207,6 +209,49 @@ class ArchipelDashboard(App):
                 self.write_to_log(f"[bold red]Connect Failed[/bold red]: {e}")
             return
 
+        elif text.startswith("/gemini ") or text.startswith("/ask ") or text.startswith("@archipel-ai "):
+            prompt = text.replace("/gemini ", "").replace("/ask ", "").replace("@archipel-ai ", "")
+            self.write_to_log(f"[bold magenta]Gemini[/bold magenta]: Querying...")
+            try:
+                from src.messaging.gemini import GeminiIntegration
+                gemini = GeminiIntegration()
+                import threading
+                def run_query():
+                    response = gemini.query(prompt)
+                    self.call_from_thread(self.write_to_log, f"[bold magenta]Gemini[/bold magenta]: {response}")
+                threading.Thread(target=run_query, daemon=True).start()
+            except Exception as e:
+                self.write_to_log(f"[bold red]Gemini Failed[/bold red]: {e}")
+            return
+
+        elif text.startswith("/sendfile "):
+            filepath = text.replace("/sendfile ", "").strip()
+            if not self.selected_peer_id:
+                self.write_to_log("[bold red]Error[/bold red]: Select a peer first to send a file to.")
+                return
+            
+            import os
+            if not os.path.exists(filepath):
+                self.write_to_log(f"[bold red]File not found[/bold red]: {filepath}")
+                return
+                
+            self.write_to_log(f"[bold yellow]Transfer[/bold yellow]: Sending '{filepath}' to {self.selected_peer_id[:8]}...")
+            try:
+                filename = os.path.basename(filepath)
+                file_size = os.path.getsize(filepath)
+                if file_size < 50 * 1024 * 1024:
+                    with open(filepath, "rb") as f:
+                        file_data = f.read()
+                    
+                    header = f"/file {filename} ".encode()
+                    await self.node.send_to_peer(self.selected_peer_id, header + file_data)
+                    self.write_to_log(f"[bold green]Success[/bold green]: File '{filename}' sent successfully!")
+                else:
+                    self.write_to_log(f"[bold red]Error[/bold red]: File too large for direct send (>50MB).")
+            except Exception as e:
+                self.write_to_log(f"[bold red]Transfer Failed[/bold red]: {e}")
+            return
+
         if not self.selected_peer_id:
             self.write_to_log("[bold red]Error[/bold red]: Select a peer first or use [italic]/connect IP:PORT[/italic]")
             return
@@ -221,6 +266,16 @@ class ArchipelDashboard(App):
         """Prepare the input for manual connection."""
         input_widget = self.query_one("#chat-input", Input)
         input_widget.value = "/connect "
+        input_widget.focus()
+
+    def action_transfer_file(self):
+        input_widget = self.query_one("#chat-input", Input)
+        input_widget.value = "/sendfile "
+        input_widget.focus()
+
+    def action_ask_gemini(self):
+        input_widget = self.query_one("#chat-input", Input)
+        input_widget.value = "/ask "
         input_widget.focus()
 
     async def action_quit(self):
