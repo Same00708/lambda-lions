@@ -2,7 +2,7 @@
 
 import asyncio
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, Static, Input, ListView, ListItem, Label, Log
+from textual.widgets import Header, Footer, Static, Input, ListView, ListItem, Label, RichLog
 from textual.containers import Container, Horizontal, Vertical
 from textual.binding import Binding
 from textual.reactive import reactive
@@ -93,21 +93,40 @@ class ArchipelDashboard(App):
 
     async def start_node(self):
         """Initialize and start the P2P node."""
-        self.node = Node(f"tui-node-{self.port}", tcp_port=self.port, bootstrap_peer=self.bootstrap_peer)
-        
-        # Monkey patch on_message_received to update TUI
-        original_on_message = self.node.on_message_received
-        
-        def patched_on_message(sender_id, data):
-            msg = data.decode(errors='replace')
-            self.query_one("#msg-log", Log).write_line(f"[cyan]{sender_id[:8]}[/cyan]: {msg}")
-            original_on_message(sender_id, data)
+        try:
+            self.node = Node(f"tui-node-{self.port}", tcp_port=self.port, bootstrap_peer=self.bootstrap_peer)
             
-        self.node.on_message_received = patched_on_message
-        
-        await self.node.start()
-        self.query_one(Header).query_one(Static).update(f"Archipel Node | ID: {self.node.node_id.hex()[:16]}...")
-        self.query_one("#msg-log", Log).write_line("[bold green]System[/bold green]: Node started and ready.")
+            # Monkey patch on_message_received to update TUI
+            original_on_message = self.node.on_message_received
+            
+            def patched_on_message(sender_id, data):
+                msg = data.decode(errors='replace')
+                # Use call_from_thread to ensure thread safety if needed, 
+                # although textual is async, the callback might come from a task
+                self.call_from_thread(self.write_to_log, f"[cyan]{sender_id[:8]}[/cyan]: {msg}")
+                original_on_message(sender_id, data)
+                
+            self.node.on_message_received = patched_on_message
+            
+            await self.node.start()
+            self.query_one(Header).query_one(Static).update(f"Archipel Node | ID: {self.node.node_id.hex()[:16]}...")
+            self.write_to_log("[bold green]System[/bold green]: Node started and ready.")
+        except OSError as e:
+            if "address already in use" in str(e).lower() or "10048" in str(e):
+                self.write_to_log(f"[bold red]CRITICAL ERROR[/bold red]: Port {self.port} is already in use!")
+                self.write_to_log("Please use another port: [italic]python -m src.cli.commands dashboard --port 7778[/italic]")
+            else:
+                self.write_to_log(f"[bold red]Failed to start node[/bold red]: {e}")
+        except Exception as e:
+            self.write_to_log(f"[bold red]Error[/bold red]: {e}")
+
+    def write_to_log(self, message: str):
+        """Helper to write to RichLog with auto-render."""
+        try:
+            log = self.query_one("#msg-log", RichLog)
+            log.write(message)
+        except Exception:
+            pass
 
     def compose(self) -> ComposeResult:
         yield Header(show_clock=True)
@@ -117,7 +136,7 @@ class ArchipelDashboard(App):
                     yield Label("[bold cyan]PEERS DISCOVERED[/bold cyan]", id="peer-header")
                     yield ListView(id="peer-list")
                 with Vertical(id="chat-area"):
-                    yield Log(id="msg-log", highlight=True, max_lines=1000)
+                    yield RichLog(id="msg-log", highlight=True, markup=True, max_lines=1000)
                     yield Container(
                         Input(placeholder="Type message and press Enter...", id="chat-input"),
                         id="input-area"
@@ -146,7 +165,7 @@ class ArchipelDashboard(App):
         """Update selected peer ID when a list item is chosen."""
         if event.item and event.item.id:
             self.selected_peer_id = event.item.id.replace("peer-", "")
-            self.query_one("#msg-log", Log).write_line(f"[bold yellow]Chatting with {self.selected_peer_id[:8]}[/bold yellow]")
+            self.write_to_log(f"[bold yellow]Chatting with {self.selected_peer_id[:8]}[/bold yellow]")
 
     async def on_input_submitted(self, event: Input.Submitted):
         """Handle input for both chat and manual connection."""
@@ -159,28 +178,28 @@ class ArchipelDashboard(App):
         # Check if we are in "Connect" mode (starts with /connect) or just sending msg
         if text.startswith("/connect "):
             peer_addr = text.replace("/connect ", "")
-            self.query_one("#msg-log", Log).write_line(f"[bold yellow]Ad-hoc[/bold yellow]: Connecting to {peer_addr}...")
+            self.write_to_log(f"[bold yellow]Ad-hoc[/bold yellow]: Connecting to {peer_addr}...")
             try:
                 from src.network.tcp_client import TCPClient
                 host, port = peer_addr.split(":")
                 client = TCPClient(self.node, host, int(port))
                 await client.connect() # This will also add it to the table
                 await client.close()
-                self.query_one("#msg-log", Log).write_line(f"[bold green]Success[/bold green]: Handshake with {peer_addr} complete.")
+                self.write_to_log(f"[bold green]Success[/bold green]: Handshake with {peer_addr} complete.")
                 self.update_peer_list()
             except Exception as e:
-                self.query_one("#msg-log", Log).write_line(f"[bold red]Connect Failed[/bold red]: {e}")
+                self.write_to_log(f"[bold red]Connect Failed[/bold red]: {e}")
             return
 
         if not self.selected_peer_id:
-            self.query_one("#msg-log", Log).write_line("[bold red]Error[/bold red]: Select a peer first or use [italic]/connect IP:PORT[/italic]")
+            self.write_to_log("[bold red]Error[/bold red]: Select a peer first or use [italic]/connect IP:PORT[/italic]")
             return
             
         try:
-            self.query_one("#msg-log", Log).write_line(f"[bold green]Me[/bold green]: {text}")
+            self.write_to_log(f"[bold green]Me[/bold green]: {text}")
             await self.node.send_to_peer(self.selected_peer_id, text.encode())
         except Exception as e:
-            self.query_one("#msg-log", Log).write_line(f"[bold red]Send Failed[/bold red]: {e}")
+            self.write_to_log(f"[bold red]Send Failed[/bold red]: {e}")
 
     def action_connect_manual(self):
         """Prepare the input for manual connection."""
